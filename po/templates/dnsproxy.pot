@@ -1,27 +1,27 @@
 msgid ""
 msgstr "Content-Type: text/plain; charset=UTF-8"
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:181
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:187
 msgid "Bogus-NXDOMAIN"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:190
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:200
 msgid "Bootstrap DNS Server"
 msgstr ""
 
 #: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:135
-msgid "Cache Settings"
+msgid "Cache"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:144
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:146
 msgid "Cache size (in bytes)"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:71
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:70
 msgid "Collecting data ..."
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:184
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:192
 msgid "Convert matching single IP responses to NXDOMAIN"
 msgstr ""
 
@@ -30,12 +30,12 @@ msgstr ""
 msgid "DNS Proxy"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:165
-msgid "DNS64 Prefix"
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:162
+msgid "DNS64"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:160
-msgid "DNS64 Settings"
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:169
+msgid "DNS64 Prefix"
 msgstr ""
 
 #: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:113
@@ -50,31 +50,31 @@ msgstr ""
 msgid "DoH uses H3 first"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:176
-msgid "EDNS Client Address"
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:175
+msgid "EDNS"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:171
-msgid "EDNS Settings"
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:182
+msgid "EDNS Client Address"
 msgstr ""
 
 #: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:78
 msgid "Enable"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:138
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:140
 msgid "Enable Cache"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:163
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:167
 msgid "Enable DNS64"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:174
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:180
 msgid "Enable EDNS"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:195
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:205
 msgid "Fallback DNS Server"
 msgstr ""
 
@@ -94,19 +94,19 @@ msgstr ""
 msgid "Log file path"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:75
-msgid "Main Settings"
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:76
+msgid "Main"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:155
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:157
 msgid "Max TTL value for DNS entries, in seconds"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:150
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:152
 msgid "Min TTL value for DNS entries, in seconds"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:140
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:142
 msgid "Optimistic Cache"
 msgstr ""
 
@@ -142,11 +142,11 @@ msgstr ""
 msgid "Timeout for queries to remote upstream (default: 10s)"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:192
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:202
 msgid "Upstream DNS Server"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:187
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:195
 msgid "Upstreams"
 msgstr ""
 
