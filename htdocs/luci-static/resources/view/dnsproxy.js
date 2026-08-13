@@ -4,6 +4,7 @@
 'require uci';
 'require rpc';
 'require poll';
+'require ui';
 'require view';
 'require tools.widgets as widgets';
 
@@ -31,6 +32,46 @@ function getServiceStatus() {
 				isrunning = res[conf]['instances'][instance]['running'];
 			} catch (e) { }
 			return isrunning;
+		});
+}
+
+function profileTitle(profile) {
+	return profile.label || profile['.name'];
+}
+
+function applyProfile(profileName) {
+	const profile = uci.sections(conf, 'profile').find((item) => item['.name'] === profileName);
+
+	if (!profile) {
+		ui.addNotification(null, E('p', _('The selected DNS profile no longer exists. Reload the page and try again.')), 'error');
+		return Promise.resolve();
+	}
+
+	const upstreams = L.toArray(profile.upstream).filter(Boolean);
+	if (!upstreams.length) {
+		ui.addNotification(null, E('p', _('The selected DNS profile has no upstream servers.')), 'error');
+		return Promise.resolve();
+	}
+
+	['bootstrap', 'upstream', 'fallback'].forEach((option) => {
+		const values = L.toArray(profile[option]).filter(Boolean);
+		uci.set(conf, 'servers', option, values.length ? values : null);
+	});
+
+	ui.showModal(_('Applying DNS profile'), [
+		E('p', { 'class': 'spinning' }, _('Saving “%s” and reloading DNS Proxy…').format(profileTitle(profile)))
+	]);
+
+	return uci.save()
+		.then(() => uci.apply())
+		.then(() => {
+			ui.hideModal();
+			ui.addNotification(null, E('p', _('DNS profile “%s” has been applied.').format(profileTitle(profile))), 'info');
+			window.setTimeout(() => window.location.reload(), 800);
+		})
+		.catch((err) => {
+			ui.hideModal();
+			ui.addNotification(null, E('p', _('Failed to apply DNS profile: %s').format(err.message || err)), 'error');
 		});
 }
 
@@ -68,6 +109,32 @@ return view.extend({
 		s.render = function (section_id) {
 			return E('div', { class: 'cbi-section' }, [
 				E('div', { id: 'service_status' }, _('Collecting data ...'))
+			]);
+		};
+
+		s = m.section(form.NamedSection, '_profile_switcher');
+		s.render = function () {
+			const profiles = uci.sections(conf, 'profile');
+			const select = E('select', {
+				'id': 'dnsproxy-profile-select',
+				'class': 'cbi-input-select',
+				'disabled': profiles.length ? null : ''
+			}, profiles.map((profile) => E('option', {
+				'value': profile['.name']
+			}, profileTitle(profile))));
+
+			return E('div', { 'class': 'cbi-section' }, [
+				E('h3', {}, _('DNS profiles')),
+				E('p', {}, _('A profile replaces Bootstrap, Upstream and Fallback lists together, then immediately reloads DNS Proxy. Unsaved changes elsewhere on this page are not included.')),
+				E('div', { 'style': 'display:flex;gap:.75em;align-items:center;flex-wrap:wrap' }, [
+					select,
+					E('button', {
+						'class': 'cbi-button cbi-button-positive important',
+						'disabled': profiles.length ? null : '',
+						'click': ui.createHandlerFn(this, () => applyProfile(select.value))
+					}, _('Apply selected profile'))
+				]),
+				profiles.length ? '' : E('p', {}, _('Create and save a profile in the “DNS profile templates” section below first.'))
 			]);
 		};
 
@@ -116,7 +183,8 @@ return view.extend({
 
 		o = s.taboption('main', form.Flag, 'insecure', _('Disable secure TLS cert validation'));
 
-		o = s.taboption('main', form.Flag, 'http3', _('DoH uses H3 first'));
+		o = s.taboption('main', form.Flag, 'http3', _('Enable HTTP/3 for DoH'));
+		o.description = _('Allows HTTP/3 and uses it when it is faster; HTTPS fallback remains available.');
 
 		o = s.taboption('main', form.Value, 'timeout', _('Timeout for queries to remote upstream (default: 10s)'));
 		o.datatype = 'string';
@@ -127,10 +195,23 @@ return view.extend({
 		o = s.taboption('main', form.Value, 'udp_buf_size', _('Size of the UDP buffer in bytes. Set 0 use the system default'));
 		o.datatype = 'uinteger';
 
-		o = s.taboption('main', form.Flag, 'all_servers', _('Parallel queries all upstream'));
-
-		o = s.taboption('main', form.Flag, 'fastest_addr', _('Respond to A or AAAA requests only with the fastest IP address'));
-		o.depends('all_servers', '1');
+		o = s.taboption('main', form.ListValue, 'upstream_mode', _('Upstream selection mode'));
+		o.value('load_balance', _('Load balance (one upstream per request)'));
+		o.value('parallel', _('Parallel (first DNS response wins)'));
+	o.value('fastest_addr', _('Fastest address (tests returned IP addresses)'));
+	o.default = 'load_balance';
+	o.rmempty = false;
+	o.description = _('For the lowest DNS response time choose Parallel. Fastest address performs additional IP reachability tests and is a different, slower operation.');
+	o.cfgvalue = function (section_id) {
+		return uci.get(conf, section_id, 'upstream_mode') ||
+			(uci.get(conf, section_id, 'fastest_addr') === '1' ? 'fastest_addr' : null) ||
+			(uci.get(conf, section_id, 'all_servers') === '1' ? 'parallel' : 'load_balance');
+	};
+	o.write = function (section_id, value) {
+		uci.set(conf, section_id, 'upstream_mode', value);
+		uci.unset(conf, section_id, 'all_servers');
+		uci.unset(conf, section_id, 'fastest_addr');
+	};
 
 		s.tab('cache', _('Cache'));
 
@@ -203,6 +284,26 @@ return view.extend({
 		so.rmempty = false;
 
 		so = ss.option(form.DynamicList, 'fallback', _('Fallback DNS Server'));
+
+		s = m.section(form.GridSection, 'profile', _('DNS profile templates'),
+			_('Create reusable templates here. Applying a template does not modify the template itself.'));
+		s.anonymous = true;
+		s.addremove = true;
+		s.nodescriptions = true;
+		s.addbtntitle = _('Add DNS profile');
+
+		o = s.option(form.Value, 'label', _('Profile name'));
+		o.rmempty = false;
+
+		o = s.option(form.DynamicList, 'bootstrap', _('Bootstrap DNS'));
+		o.modalonly = true;
+
+		o = s.option(form.DynamicList, 'upstream', _('Upstream DNS'));
+		o.rmempty = false;
+		o.modalonly = true;
+
+		o = s.option(form.DynamicList, 'fallback', _('Fallback DNS'));
+		o.modalonly = true;
 
 		return m.render()
 		.then(L.bind(function(m, nodes) {

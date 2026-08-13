@@ -1,0 +1,62 @@
+#!/bin/sh
+
+add_cloudflare_profile() {
+	uci set dnsproxy.cloudflare='profile'
+	uci set dnsproxy.cloudflare.label='Cloudflare DoH'
+	uci add_list dnsproxy.cloudflare.bootstrap='1.1.1.1:53'
+	uci add_list dnsproxy.cloudflare.bootstrap='1.0.0.1:53'
+	uci add_list dnsproxy.cloudflare.upstream='https://cloudflare-dns.com/dns-query'
+	uci add_list dnsproxy.cloudflare.fallback='https://dns.quad9.net/dns-query'
+}
+
+add_quad9_profile() {
+	uci set dnsproxy.quad9='profile'
+	uci set dnsproxy.quad9.label='Quad9 DoH'
+	uci add_list dnsproxy.quad9.bootstrap='9.9.9.9:53'
+	uci add_list dnsproxy.quad9.bootstrap='149.112.112.112:53'
+	uci add_list dnsproxy.quad9.upstream='https://dns.quad9.net/dns-query'
+	uci add_list dnsproxy.quad9.fallback='https://cloudflare-dns.com/dns-query'
+}
+
+add_google_profile() {
+	uci set dnsproxy.google='profile'
+	uci set dnsproxy.google.label='Google DoH'
+	uci add_list dnsproxy.google.bootstrap='8.8.8.8:53'
+	uci add_list dnsproxy.google.bootstrap='8.8.4.4:53'
+	uci add_list dnsproxy.google.upstream='https://dns.google/dns-query'
+	uci add_list dnsproxy.google.fallback='https://cloudflare-dns.com/dns-query'
+}
+
+add_fast_mixed_profile() {
+	uci set dnsproxy.fast_mixed='profile'
+	uci set dnsproxy.fast_mixed.label='Fast mixed DoH'
+	uci add_list dnsproxy.fast_mixed.bootstrap='1.1.1.1:53'
+	uci add_list dnsproxy.fast_mixed.bootstrap='9.9.9.9:53'
+	uci add_list dnsproxy.fast_mixed.bootstrap='8.8.8.8:53'
+	uci add_list dnsproxy.fast_mixed.upstream='https://cloudflare-dns.com/dns-query'
+	uci add_list dnsproxy.fast_mixed.upstream='https://dns.quad9.net/dns-query'
+	uci add_list dnsproxy.fast_mixed.fallback='https://dns.google/dns-query'
+}
+
+uci -q get dnsproxy.cloudflare >/dev/null || add_cloudflare_profile
+uci -q get dnsproxy.quad9 >/dev/null || add_quad9_profile
+uci -q get dnsproxy.google >/dev/null || add_google_profile
+uci -q get dnsproxy.fast_mixed >/dev/null || add_fast_mixed_profile
+
+mode="$(uci -q get dnsproxy.global.upstream_mode)"
+
+if [ -z "$mode" ]; then
+	if [ "$(uci -q get dnsproxy.global.fastest_addr)" = '1' ]; then
+		uci set dnsproxy.global.upstream_mode='fastest_addr'
+	elif [ "$(uci -q get dnsproxy.global.all_servers)" = '1' ]; then
+		uci set dnsproxy.global.upstream_mode='parallel'
+	else
+		uci set dnsproxy.global.upstream_mode='load_balance'
+	fi
+fi
+
+uci -q delete dnsproxy.global.all_servers
+uci -q delete dnsproxy.global.fastest_addr
+uci commit dnsproxy
+
+exit 0
