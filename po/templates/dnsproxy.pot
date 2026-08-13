@@ -1,155 +1,250 @@
 msgid ""
 msgstr "Content-Type: text/plain; charset=UTF-8"
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:187
-msgid "Bogus-NXDOMAIN"
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:128
+msgid ""
+"A profile replaces Bootstrap, Upstream and Fallback lists together, then "
+"immediately reloads DNS Proxy. Unsaved changes elsewhere on this page are "
+"not included."
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:200
-msgid "Bootstrap DNS Server"
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:293
+msgid "Add DNS profile"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:187
+msgid ""
+"Allows HTTP/3 and uses it when it is faster; HTTPS fallback remains "
+"available."
 msgstr ""
 
 #: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:135
+msgid "Apply selected profile"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:61
+msgid "Applying DNS profile"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:268
+msgid "Bogus-NXDOMAIN"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:298
+msgid "Bootstrap DNS"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:281
+msgid "Bootstrap DNS Server"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:216
 msgid "Cache"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:146
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:227
 msgid "Cache size (in bytes)"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:70
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:111
 msgid "Collecting data ..."
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:192
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:273
 msgid "Convert matching single IP responses to NXDOMAIN"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:65
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:137
+msgid ""
+"Create and save a profile in the “DNS profile templates” section below first."
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:289
+msgid ""
+"Create reusable templates here. Applying a template does not modify the "
+"template itself."
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:106
 #: applications/luci-app-dnsproxy/root/usr/share/luci/menu.d/luci-app-dnsproxy.json:3
 msgid "DNS Proxy"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:162
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:288
+msgid "DNS profile templates"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:69
+msgid "DNS profile “%s” has been applied."
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:127
+msgid "DNS profiles"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:243
 msgid "DNS64"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:169
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:250
 msgid "DNS64 Prefix"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:113
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:180
 msgid "Disable IPv6"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:117
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:184
 msgid "Disable secure TLS cert validation"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:119
-msgid "DoH uses H3 first"
-msgstr ""
-
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:175
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:256
 msgid "EDNS"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:182
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:263
 msgid "EDNS Client Address"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:78
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:145
 msgid "Enable"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:140
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:221
 msgid "Enable Cache"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:167
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:248
 msgid "Enable DNS64"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:180
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:261
 msgid "Enable EDNS"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:205
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:186
+msgid "Enable HTTP/3 for DoH"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:74
+msgid "Failed to apply DNS profile: %s"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:305
+msgid "Fallback DNS"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:286
 msgid "Fallback DNS Server"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:201
+msgid "Fastest address (tests returned IP addresses)"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:204
+msgid ""
+"For the lowest DNS response time choose Parallel. Fastest address performs "
+"additional IP reachability tests and is a different, slower operation."
 msgstr ""
 
 #: applications/luci-app-dnsproxy/root/usr/share/rpcd/acl.d/luci-app-dnsproxy.json:3
 msgid "Grant access to LuCI app dnsproxy"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:86
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:153
 msgid "Listen address"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:108
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:175
 msgid "Listen ports"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:83
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:199
+msgid "Load balance (one upstream per request)"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:150
 msgid "Log file path"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:76
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:143
 msgid "Main"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:157
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:238
 msgid "Max TTL value for DNS entries, in seconds"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:152
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:233
 msgid "Min TTL value for DNS entries, in seconds"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:142
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:223
 msgid "Optimistic Cache"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:130
-msgid "Parallel queries all upstream"
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:200
+msgid "Parallel (first DNS response wins)"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:124
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:295
+msgid "Profile name"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:192
 msgid "Ratelimit (requests per second)"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:115
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:182
 msgid "Refuse <code>ANY</code> requests"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:132
-msgid "Respond to A or AAAA requests only with the fastest IP address"
-msgstr ""
-
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:54
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:95
 msgid "SERVER NOT RUNNING"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:52
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:93
 msgid "SERVER RUNNING"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:127
-msgid "Size of the UDP buffer in bytes. Set 0 use the system default"
-msgstr ""
-
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:121
-msgid "Timeout for queries to remote upstream (default: 10s)"
-msgstr ""
-
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:202
-msgid "Upstream DNS Server"
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:62
+msgid "Saving “%s” and reloading DNS Proxy…"
 msgstr ""
 
 #: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:195
+msgid "Size of the UDP buffer in bytes. Set 0 use the system default"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:52
+msgid "The selected DNS profile has no upstream servers."
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:46
+msgid ""
+"The selected DNS profile no longer exists. Reload the page and try again."
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:189
+msgid "Timeout for queries to remote upstream (default: 10s)"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:301
+msgid "Upstream DNS"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:283
+msgid "Upstream DNS Server"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:198
+msgid "Upstream selection mode"
+msgstr ""
+
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:276
 msgid "Upstreams"
 msgstr ""
 
-#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:81
+#: applications/luci-app-dnsproxy/htdocs/luci-static/resources/view/dnsproxy.js:148
 msgid "Verbose"
 msgstr ""
