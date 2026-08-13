@@ -1,0 +1,110 @@
+#!/bin/sh
+
+set -u
+
+tmpdir="/tmp/dnsproxy-profile-test.$$"
+bootstrap_file="$tmpdir/bootstrap"
+upstream_file="$tmpdir/upstream"
+fallback_file="$tmpdir/fallback"
+log_file="$tmpdir/dnsproxy.log"
+pid=''
+
+cleanup() {
+	if [ -n "$pid" ]; then
+		kill "$pid" 2>/dev/null || true
+		wait "$pid" 2>/dev/null || true
+	fi
+	rm -rf "$tmpdir"
+}
+
+trap cleanup EXIT INT TERM
+
+mkdir -m 0700 "$tmpdir" || exit 1
+: > "$bootstrap_file"
+: > "$upstream_file"
+: > "$fallback_file"
+
+mode='load_balance'
+count=0
+
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		--upstream-mode)
+			[ "$#" -ge 2 ] || exit 2
+			case "$2" in
+				load_balance|parallel|fastest_addr) mode="$2" ;;
+				*) exit 2 ;;
+			esac
+			shift 2
+			;;
+		--bootstrap|--upstream|--fallback)
+			[ "$#" -ge 2 ] || exit 2
+			count=$((count + 1))
+			[ "$count" -le 128 ] || exit 2
+			[ -n "$2" ] || exit 2
+			case "$2" in
+				*"
+"*|*"	"*) exit 2 ;;
+			esac
+			case "$1" in
+				--bootstrap) printf '%s\n' "$2" >> "$bootstrap_file" ;;
+				--upstream) printf '%s\n' "$2" >> "$upstream_file" ;;
+				--fallback) printf '%s\n' "$2" >> "$fallback_file" ;;
+			esac
+			shift 2
+			;;
+		*) exit 2 ;;
+	esac
+done
+
+[ -s "$upstream_file" ] || exit 2
+command -v dnsproxy >/dev/null 2>&1 || exit 127
+command -v nslookup >/dev/null 2>&1 || exit 127
+
+test_server() {
+	kind="$1"
+	server="$2"
+	port=$((30000 + ($$ + count) % 20000))
+	count=$((count + 1))
+
+	set -- dnsproxy \
+		--listen 127.0.0.1 \
+		--port "$port" \
+		--upstream "$server" \
+		--upstream-mode "$mode" \
+		--timeout 5s
+
+	while IFS= read -r bootstrap; do
+		[ -n "$bootstrap" ] && set -- "$@" --bootstrap "$bootstrap"
+	done < "$bootstrap_file"
+
+	"$@" > "$log_file" 2>&1 &
+	pid=$!
+	sleep 1
+
+	output="$(nslookup -debug -type=A -timeout=5 -retry=1 -port="$port" openwrt.org 127.0.0.1 2>&1)"
+	status=$?
+
+	kill "$pid" 2>/dev/null || true
+	wait "$pid" 2>/dev/null || true
+	pid=''
+
+	latency="$(printf '%s\n' "$output" | sed -n 's/.*completed in \([0-9][0-9]*\)ms.*/\1/p' | head -n 1)"
+	if [ "$status" -eq 0 ]; then
+		printf '%s\tok\t%s\t%s\n' "$kind" "${latency:--}" "$server"
+	else
+		reason="$(printf '%s\n' "$output" | tail -n 1 | tr '\t' ' ')"
+		[ -n "$reason" ] || reason="$(tail -n 1 "$log_file" | tr '\t' ' ')"
+		printf '%s\terror\t-\t%s\t%s\n' "$kind" "$server" "$reason"
+	fi
+}
+
+while IFS= read -r server; do
+	[ -n "$server" ] && test_server upstream "$server"
+done < "$upstream_file"
+
+while IFS= read -r server; do
+	[ -n "$server" ] && test_server fallback "$server"
+done < "$fallback_file"
+
+exit 0

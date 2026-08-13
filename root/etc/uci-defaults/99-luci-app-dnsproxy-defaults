@@ -7,6 +7,7 @@ add_cloudflare_profile() {
 	uci add_list dnsproxy.cloudflare.bootstrap='1.0.0.1:53'
 	uci add_list dnsproxy.cloudflare.upstream='https://cloudflare-dns.com/dns-query'
 	uci add_list dnsproxy.cloudflare.fallback='https://dns.quad9.net/dns-query'
+	uci set dnsproxy.cloudflare.upstream_mode='load_balance'
 }
 
 add_quad9_profile() {
@@ -16,6 +17,7 @@ add_quad9_profile() {
 	uci add_list dnsproxy.quad9.bootstrap='149.112.112.112:53'
 	uci add_list dnsproxy.quad9.upstream='https://dns.quad9.net/dns-query'
 	uci add_list dnsproxy.quad9.fallback='https://cloudflare-dns.com/dns-query'
+	uci set dnsproxy.quad9.upstream_mode='load_balance'
 }
 
 add_google_profile() {
@@ -25,6 +27,7 @@ add_google_profile() {
 	uci add_list dnsproxy.google.bootstrap='8.8.4.4:53'
 	uci add_list dnsproxy.google.upstream='https://dns.google/dns-query'
 	uci add_list dnsproxy.google.fallback='https://cloudflare-dns.com/dns-query'
+	uci set dnsproxy.google.upstream_mode='load_balance'
 }
 
 add_fast_mixed_profile() {
@@ -36,12 +39,18 @@ add_fast_mixed_profile() {
 	uci add_list dnsproxy.fast_mixed.upstream='https://cloudflare-dns.com/dns-query'
 	uci add_list dnsproxy.fast_mixed.upstream='https://dns.quad9.net/dns-query'
 	uci add_list dnsproxy.fast_mixed.fallback='https://dns.google/dns-query'
+	uci set dnsproxy.fast_mixed.upstream_mode='parallel'
 }
 
 uci -q get dnsproxy.cloudflare >/dev/null || add_cloudflare_profile
 uci -q get dnsproxy.quad9 >/dev/null || add_quad9_profile
 uci -q get dnsproxy.google >/dev/null || add_google_profile
 uci -q get dnsproxy.fast_mixed >/dev/null || add_fast_mixed_profile
+
+uci -q get dnsproxy.cloudflare.upstream_mode >/dev/null || uci set dnsproxy.cloudflare.upstream_mode='load_balance'
+uci -q get dnsproxy.quad9.upstream_mode >/dev/null || uci set dnsproxy.quad9.upstream_mode='load_balance'
+uci -q get dnsproxy.google.upstream_mode >/dev/null || uci set dnsproxy.google.upstream_mode='load_balance'
+uci -q get dnsproxy.fast_mixed.upstream_mode >/dev/null || uci set dnsproxy.fast_mixed.upstream_mode='parallel'
 
 mode="$(uci -q get dnsproxy.global.upstream_mode)"
 

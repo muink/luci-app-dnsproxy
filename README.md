@@ -5,9 +5,12 @@
 it can work as a `DNS-over-HTTPS`, `DNS-over-TLS` or `DNS-over-QUIC` server.
 
 The LuCI interface also supports reusable DNS profiles.  Each profile stores
-its own bootstrap, upstream, and fallback server lists and can apply all three
-lists at once.  Editable example profiles for Cloudflare, Quad9, Google, and a
-mixed parallel setup are included to demonstrate the feature.
+its own bootstrap, upstream, fallback, and upstream-selection settings.  The
+interface identifies the active profile, loads profiles into the form for
+review, creates or updates profiles from the current settings, validates and
+tests their DNS servers, and supports JSON import and export.  Profile editing
+is kept in a collapsed manager on the **Upstreams** tab.  Editable examples for
+Cloudflare, Quad9, Google, and a mixed parallel setup demonstrate the feature.
 
 ## How to install
 

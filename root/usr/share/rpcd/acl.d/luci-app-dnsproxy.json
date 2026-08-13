@@ -2,6 +2,9 @@
 	"luci-app-dnsproxy": {
 		"description": "Grant access to LuCI app dnsproxy",
 		"read": {
+			"file": {
+				"/usr/libexec/dnsproxy-profile-test": [ "exec" ]
+			},
 			"ubus": {
 				"luci-rpc": [ "getHostHints" ],
 				"service": [ "list" ]
