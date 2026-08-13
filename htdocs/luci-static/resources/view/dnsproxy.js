@@ -113,6 +113,25 @@ function validateUniqueServerValue(listName) {
 	};
 }
 
+function validateTestDomain(value) {
+	const domain = String(value || '').trim();
+	const hostname = domain.endsWith('.') ? domain.slice(0, -1) : domain;
+
+	if (!hostname)
+		return _('Test domain is required.');
+
+	if (hostname.length > 253)
+		return _('Test domain must not exceed 253 characters.');
+
+	if (!/^[A-Za-z0-9.-]+$/.test(hostname))
+		return _('Enter an ASCII domain name, for example example.com. International domains must use Punycode.');
+
+	if (hostname.split('.').some((label) => !label || label.length > 63 || label.startsWith('-') || label.endsWith('-')))
+		return _('Test domain contains an invalid DNS label.');
+
+	return true;
+}
+
 function analyzeProfile(data, profiles, sectionName) {
 	const errors = [];
 	const warnings = [];
@@ -529,21 +548,12 @@ return view.extend({
 			]);
 		};
 
-		const testProfile = (profile) => {
-			if (!profile) {
-				ui.addNotification(null, E('p', {}, _('The selected DNS profile no longer exists. Reload the page and try again.')), 'error');
-				return Promise.resolve();
-			}
-			const data = profileData(profile);
-			const result = analyzeProfile(data, uci.sections(conf, 'profile'), profile['.name']);
-			if (!showProfileProblems(result))
-				return Promise.resolve();
-
-			const args = ['--upstream-mode', data.upstream_mode || currentUpstreamMode()];
+		const runProfileTest = (profile, data, domain) => {
+			const args = ['--domain', domain, '--upstream-mode', data.upstream_mode || currentUpstreamMode()];
 			profileListOptions.forEach((option) => data[option].forEach((value) => args.push('--' + option, value)));
 
 			ui.showModal(_('Testing DNS profile'), [
-				E('p', { 'class': 'spinning' }, _('Resolving openwrt.org through “%s”…').format(profileTitle(profile)))
+				E('p', { 'class': 'spinning' }, _('Resolving %s through “%s”…').format(domain, profileTitle(profile)))
 			]);
 
 			return fs.exec('/usr/libexec/dnsproxy-profile-test', args)
@@ -567,7 +577,7 @@ return view.extend({
 						throw new Error(_('The DNS profile test returned no results.'));
 
 					ui.showModal(_('DNS profile test'), [
-						E('p', {}, _('Each server was tested independently by resolving openwrt.org through a temporary local DNS Proxy instance.')),
+						E('p', {}, _('Each server was tested independently by resolving %s through a temporary local DNS Proxy instance.').format(domain)),
 						E('div', { 'class': 'table cbi-section-table' }, [
 							E('div', { 'class': 'tr table-titles' }, [
 								E('div', { 'class': 'th' }, _('Type')),
@@ -591,6 +601,63 @@ return view.extend({
 						])
 					]);
 				});
+		};
+
+		const testProfile = (profile) => {
+			if (!profile) {
+				ui.addNotification(null, E('p', {}, _('The selected DNS profile no longer exists. Reload the page and try again.')), 'error');
+				return Promise.resolve();
+			}
+			const data = profileData(profile);
+			const result = analyzeProfile(data, uci.sections(conf, 'profile'), profile['.name']);
+			if (!showProfileProblems(result))
+				return Promise.resolve();
+
+			const domainInput = E('input', {
+				'class': 'cbi-input-text',
+				'type': 'text',
+				'value': 'openwrt.org',
+				'placeholder': 'example.com',
+				'maxlength': '254',
+				'autocomplete': 'off',
+				'spellcheck': 'false'
+			});
+			const validationMessage = E('p', { 'style': 'color:var(--error-color, #c00);white-space:pre-wrap' });
+			const startTest = () => {
+				const domain = String(domainInput.value || '').trim();
+				const validation = validateTestDomain(domain);
+				if (validation !== true) {
+					validationMessage.textContent = validation;
+					domainInput.focus();
+					return Promise.resolve();
+				}
+				return runProfileTest(profile, data, domain);
+			};
+
+			domainInput.addEventListener('keydown', (event) => {
+				if (event.key === 'Enter') {
+					event.preventDefault();
+					startTest();
+				}
+			});
+
+			ui.showModal(_('Test DNS profile'), [
+				E('p', {}, _('Choose the domain used to measure DNS response time. Each configured server will resolve it independently.')),
+				E('div', { 'class': 'cbi-value' }, [
+					E('label', { 'class': 'cbi-value-title' }, _('Test domain')),
+					E('div', { 'class': 'cbi-value-field' }, domainInput)
+				]),
+				validationMessage,
+				E('div', { 'class': 'right' }, [
+					E('button', { 'class': 'btn', 'click': ui.hideModal }, _('Cancel')),
+					E('button', {
+						'class': 'btn cbi-button-positive important',
+						'click': ui.createHandlerFn(this, startTest)
+					}, _('Run test'))
+				])
+			]);
+			window.setTimeout(() => domainInput.focus(), 0);
+			return Promise.resolve();
 		};
 
 		s.tab('servers', _('Upstreams'));

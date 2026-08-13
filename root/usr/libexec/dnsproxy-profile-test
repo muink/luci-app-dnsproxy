@@ -25,10 +25,16 @@ mkdir -m 0700 "$tmpdir" || exit 1
 : > "$fallback_file"
 
 mode='load_balance'
+domain='openwrt.org'
 count=0
 
 while [ "$#" -gt 0 ]; do
 	case "$1" in
+		--domain)
+			[ "$#" -ge 2 ] || exit 2
+			domain="$2"
+			shift 2
+			;;
 		--upstream-mode)
 			[ "$#" -ge 2 ] || exit 2
 			case "$2" in
@@ -57,6 +63,25 @@ while [ "$#" -gt 0 ]; do
 	esac
 done
 
+hostname="${domain%.}"
+[ -n "$hostname" ] || exit 2
+[ "${#hostname}" -le 253 ] || exit 2
+case "$hostname" in
+	.*|*..*|*[!A-Za-z0-9.-]*) exit 2 ;;
+esac
+
+old_ifs="$IFS"
+IFS='.'
+set -- $hostname
+IFS="$old_ifs"
+for label do
+	[ -n "$label" ] || exit 2
+	[ "${#label}" -le 63 ] || exit 2
+	case "$label" in
+		-*|*-) exit 2 ;;
+	esac
+done
+
 [ -s "$upstream_file" ] || exit 2
 command -v dnsproxy >/dev/null 2>&1 || exit 127
 command -v nslookup >/dev/null 2>&1 || exit 127
@@ -82,7 +107,7 @@ test_server() {
 	pid=$!
 	sleep 1
 
-	output="$(nslookup -debug -type=A -timeout=5 -retry=1 -port="$port" openwrt.org 127.0.0.1 2>&1)"
+	output="$(nslookup -debug -type=A -timeout=5 -retry=1 -port="$port" "$domain" 127.0.0.1 2>&1)"
 	status=$?
 
 	kill "$pid" 2>/dev/null || true

@@ -8,9 +8,10 @@ The LuCI interface also supports reusable DNS profiles.  Each profile stores
 its own bootstrap, upstream, fallback, and upstream-selection settings.  The
 interface identifies the active profile, loads profiles into the form for
 review, creates or updates profiles from the current settings, validates and
-tests their DNS servers, and supports JSON import and export.  Profile editing
-is kept in a collapsed manager on the **Upstreams** tab.  Editable examples for
-Cloudflare, Quad9, Google, and a mixed parallel setup demonstrate the feature.
+tests their DNS servers against a user-selected domain, and supports JSON import
+and export.  Profile editing is kept in a collapsed manager on the **Upstreams**
+tab.  Editable examples for Cloudflare, Quad9, Google, and a mixed parallel
+setup demonstrate the feature.
 
 ## How to install
 
