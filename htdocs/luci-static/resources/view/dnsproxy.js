@@ -6,10 +6,12 @@
 'require poll';
 'require ui';
 'require view';
+'require validation';
 'require tools.widgets as widgets';
 
 const conf = 'dnsproxy';
 const instance = 'dnsproxy';
+const profileListOptions = ['bootstrap', 'upstream', 'fallback'];
 
 const callServiceList = rpc.declare({
 	object: 'service',
@@ -42,21 +44,19 @@ function profileTitle(profile) {
 function applyProfile(profileName) {
 	const profile = uci.sections(conf, 'profile').find((item) => item['.name'] === profileName);
 
-	if (!profile) {
-		ui.addNotification(null, E('p', _('The selected DNS profile no longer exists. Reload the page and try again.')), 'error');
-		return Promise.resolve();
-	}
+	if (!profile)
+		return ui.addNotification(null, E('p', _('The selected DNS profile no longer exists. Reload the page and try again.')), 'error');
 
 	const upstreams = L.toArray(profile.upstream).filter(Boolean);
-	if (!upstreams.length) {
-		ui.addNotification(null, E('p', _('The selected DNS profile has no upstream servers.')), 'error');
-		return Promise.resolve();
-	}
+	if (!upstreams.length)
+		return ui.addNotification(null, E('p', _('The selected DNS profile has no upstream servers.')), 'error');
 
-	['bootstrap', 'upstream', 'fallback'].forEach((option) => {
+	profileListOptions.forEach((option) => {
 		const values = L.toArray(profile[option]).filter(Boolean);
 		uci.set(conf, 'servers', option, values.length ? values : null);
 	});
+
+	uci.set(conf, 'global', 'upstream_mode', profile.upstream_mode || null);
 
 	ui.showModal(_('Applying DNS profile'), [
 		E('p', { 'class': 'spinning' }, _('Saving “%s” and reloading DNS Proxy…').format(profileTitle(profile)))
@@ -73,6 +73,58 @@ function applyProfile(profileName) {
 			ui.hideModal();
 			ui.addNotification(null, E('p', _('Failed to apply DNS profile: %s').format(err.message || err)), 'error');
 		});
+}
+
+function validateUniqueValue(section_id, value) {
+	if (!value)
+		return _('Expecting: %s').format(_('non-empty value'));
+
+	let duplicate = false;
+	uci.sections(this.config, this.section.sectiontype, (res) => {
+		if (res['.name'] !== section_id)
+			if (res[this.option] === value)
+				duplicate = true;
+	});
+	if (duplicate)
+		return _('Expecting: %s').format(_('unique value'));
+
+	return true;
+}
+
+function validateServerValue(section_id, value) {
+	if (!value)
+		return true;
+
+	if (!value.includes('://')) {
+		let stubValidator = {
+			factory: validation,
+			apply(type, value, args) {
+				if (value != null)
+					this.value = value;
+
+				return validation.types[type].apply(this, args);
+			},
+			assert(condition) {
+				return !!condition;
+			}
+		};
+
+		if (!stubValidator.apply('host', value) && !stubValidator.apply('hostport', value))
+			return _('Expecting: %s').format(_('valid host or hostport'));
+
+		return true;
+	}
+
+	try {
+		const url = new URL(value);
+		if (!url.hostname)
+			return _('Expecting: %s').format(_('valid URL'));
+
+		return true;
+	}
+	catch (e) {
+		return _('Invalid URI');
+	}
 }
 
 return view.extend({
@@ -294,15 +346,25 @@ return view.extend({
 
 		so = ss.option(form.Value, 'label', _('Profile name'));
 		so.rmempty = false;
+		so.validate = validateUniqueValue;
+
+		so = ss.option(form.ListValue, 'upstream_mode', _('Upstream selection mode'));
+		so.value('', _('Keep current mode'));
+		so.value('load_balance', _('Load balance (one upstream per request)'));
+		so.value('parallel', _('Parallel (first DNS response wins)'));
+		so.value('fastest_addr', _('Fastest address (tests returned IP addresses)'));
 
 		so = ss.option(form.DynamicList, 'bootstrap', _('Bootstrap DNS'));
+		so.validate = validateServerValue;
 		so.modalonly = true;
 
 		so = ss.option(form.DynamicList, 'upstream', _('Upstream DNS'));
 		so.rmempty = false;
+		so.validate = validateServerValue;
 		so.modalonly = true;
 
 		so = ss.option(form.DynamicList, 'fallback', _('Fallback DNS'));
+		so.validate = validateServerValue;
 		so.modalonly = true;
 
 		return m.render()
