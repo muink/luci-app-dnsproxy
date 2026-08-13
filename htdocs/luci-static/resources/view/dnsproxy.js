@@ -112,32 +112,6 @@ return view.extend({
 			]);
 		};
 
-		s = m.section(form.NamedSection, '_profile_switcher');
-		s.render = function () {
-			const profiles = uci.sections(conf, 'profile');
-			const select = E('select', {
-				'id': 'dnsproxy-profile-select',
-				'class': 'cbi-input-select',
-				'disabled': profiles.length ? null : ''
-			}, profiles.map((profile) => E('option', {
-				'value': profile['.name']
-			}, profileTitle(profile))));
-
-			return E('div', { 'class': 'cbi-section' }, [
-				E('h3', {}, _('DNS profiles')),
-				E('p', {}, _('A profile replaces Bootstrap, Upstream and Fallback lists together, then immediately reloads DNS Proxy. Unsaved changes elsewhere on this page are not included.')),
-				E('div', { 'style': 'display:flex;gap:.75em;align-items:center;flex-wrap:wrap' }, [
-					select,
-					E('button', {
-						'class': 'cbi-button cbi-button-positive important',
-						'disabled': profiles.length ? null : '',
-						'click': ui.createHandlerFn(this, () => applyProfile(select.value))
-					}, _('Apply selected profile'))
-				]),
-				profiles.length ? '' : E('p', {}, _('Create and save a profile in the “DNS profile templates” section below first.'))
-			]);
-		};
-
 		s = m.section(form.NamedSection, 'global', 'dnsproxy');
 
 		s.tab('main', _('Main'));
@@ -275,6 +249,31 @@ return view.extend({
 
 		s.tab('servers', _('Upstreams'));
 
+		o = s.taboption('servers', form.DummyValue, '_profile_switcher', _('DNS profiles'),
+			_('A profile replaces Bootstrap, Upstream and Fallback lists together, then immediately reloads DNS Proxy. Unsaved changes elsewhere on this page are not included.'));
+		o.renderWidget = function () {
+			const profiles = uci.sections(conf, 'profile');
+			const select = E('select', {
+				'id': 'dnsproxy-profile-select',
+				'class': 'cbi-input-select',
+				'disabled': profiles.length ? null : ''
+			}, profiles.map((profile) => E('option', {
+				'value': profile['.name']
+			}, profileTitle(profile))));
+
+			return E('div', {}, [
+				E('div', { 'style': 'display:flex;gap:.75em;align-items:center;flex-wrap:wrap' }, [
+					select,
+					E('button', {
+						'class': 'cbi-button cbi-button-positive important',
+						'disabled': profiles.length ? null : '',
+						'click': ui.createHandlerFn(this, () => applyProfile(select.value))
+					}, _('Apply selected profile'))
+				]),
+				profiles.length ? '' : E('p', {}, _('Create and save a profile in the “DNS profile templates” section below first.'))
+			]);
+		};
+
 		o = s.taboption('servers', form.SectionValue, '_servers', form.NamedSection, 'servers', 'homeproxy');
 		ss = o.subsection;
 
@@ -285,25 +284,26 @@ return view.extend({
 
 		so = ss.option(form.DynamicList, 'fallback', _('Fallback DNS Server'));
 
-		s = m.section(form.GridSection, 'profile', _('DNS profile templates'),
+		o = s.taboption('servers', form.SectionValue, '_profiles', form.GridSection, 'profile', _('DNS profile templates'),
 			_('Create reusable templates here. Applying a template does not modify the template itself.'));
-		s.anonymous = true;
-		s.addremove = true;
-		s.nodescriptions = true;
-		s.addbtntitle = _('Add DNS profile');
+		ss = o.subsection;
+		ss.anonymous = true;
+		ss.addremove = true;
+		ss.nodescriptions = true;
+		ss.addbtntitle = _('Add DNS profile');
 
-		o = s.option(form.Value, 'label', _('Profile name'));
-		o.rmempty = false;
+		so = ss.option(form.Value, 'label', _('Profile name'));
+		so.rmempty = false;
 
-		o = s.option(form.DynamicList, 'bootstrap', _('Bootstrap DNS'));
-		o.modalonly = true;
+		so = ss.option(form.DynamicList, 'bootstrap', _('Bootstrap DNS'));
+		so.modalonly = true;
 
-		o = s.option(form.DynamicList, 'upstream', _('Upstream DNS'));
-		o.rmempty = false;
-		o.modalonly = true;
+		so = ss.option(form.DynamicList, 'upstream', _('Upstream DNS'));
+		so.rmempty = false;
+		so.modalonly = true;
 
-		o = s.option(form.DynamicList, 'fallback', _('Fallback DNS'));
-		o.modalonly = true;
+		so = ss.option(form.DynamicList, 'fallback', _('Fallback DNS'));
+		so.modalonly = true;
 
 		return m.render()
 		.then(L.bind(function(m, nodes) {
