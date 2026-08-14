@@ -14,6 +14,8 @@ minimum, average, and maximum response times, tests Bootstrap, Upstream, and
 Fallback endpoints independently, and verifies actual fallback activation.
 Results are sorted and color-coded, and all saved profiles can be compared with
 identical test settings.  The last test domain is stored only in the browser.
+Long-running tests use LuCI's direct CGI execution path and are not limited by
+the default 20-second RPC timeout.
 Profile editing is kept in a collapsed manager on the **Upstreams** tab.
 Editable examples for Cloudflare, Quad9, Google, and a mixed parallel setup
 demonstrate the feature.

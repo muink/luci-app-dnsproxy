@@ -636,10 +636,10 @@ return view.extend({
 			failover: _('Fallback activation')
 		})[kind] || kind;
 
-		const parseTestOutput = (output) => String(output || '').trim().split('\n').filter(Boolean).map((line) => {
+		const parseTestOutput = (output) => String(output || '').replace(/\r/g, '').replace(/\n+$/, '').split('\n').filter(Boolean).map((line) => {
 			const fields = line.split('\t');
-			if (fields.length < 10)
-				throw new Error(_('The DNS profile test returned an unsupported result format.'));
+			if (fields.length < 9)
+				throw new Error(line || _('The DNS profile test returned an unsupported result format.'));
 			const numberOrNull = (value) => /^\d+$/.test(value) ? Number(value) : null;
 			return {
 				kind: fields[0],
@@ -663,10 +663,7 @@ return view.extend({
 				'--upstream-mode', data.upstream_mode || currentUpstreamMode()
 			];
 			profileListOptions.forEach((option) => data[option].forEach((value) => args.push('--' + option, value)));
-			return fs.exec('/usr/libexec/dnsproxy-profile-test', args).then((response) => {
-				const output = String(response.stdout || '').trim();
-				if (response.code !== 0)
-					throw new Error(String(response.stderr || output || _('The DNS query failed.')).trim());
+			return fs.exec_direct('/usr/libexec/dnsproxy-profile-test', args, 'text', false, true).then((output) => {
 				const rows = parseTestOutput(output);
 				if (!rows.length)
 					throw new Error(_('The DNS profile test returned no results.'));
