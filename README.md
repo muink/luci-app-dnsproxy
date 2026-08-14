@@ -6,12 +6,17 @@ it can work as a `DNS-over-HTTPS`, `DNS-over-TLS` or `DNS-over-QUIC` server.
 
 The LuCI interface also supports reusable DNS profiles.  Each profile stores
 its own bootstrap, upstream, fallback, and upstream-selection settings.  The
-interface identifies the active profile, loads profiles into the form for
-review, creates or updates profiles from the current settings, validates and
-tests their DNS servers against a user-selected domain, and supports JSON import
-and export.  Profile editing is kept in a collapsed manager on the **Upstreams**
-tab.  Editable examples for Cloudflare, Quad9, Google, and a mixed parallel
-setup demonstrate the feature.
+interface identifies the active profile, previews changes before loading or
+updating a profile, creates profiles from the current settings, validates their
+contents, and supports versioned JSON import and export.  Its built-in tester
+can measure A, AAAA, or both record types over 1, 3, 5, or 10 attempts, reports
+minimum, average, and maximum response times, tests Bootstrap, Upstream, and
+Fallback endpoints independently, and verifies actual fallback activation.
+Results are sorted and color-coded, and all saved profiles can be compared with
+identical test settings.  The last test domain is stored only in the browser.
+Profile editing is kept in a collapsed manager on the **Upstreams** tab.
+Editable examples for Cloudflare, Quad9, Google, and a mixed parallel setup
+demonstrate the feature.
 
 ## How to install
 

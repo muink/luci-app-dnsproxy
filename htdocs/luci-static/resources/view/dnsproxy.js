@@ -12,6 +12,7 @@ const conf = 'dnsproxy';
 const instance = 'dnsproxy';
 const profileListOptions = ['bootstrap', 'upstream', 'fallback'];
 const upstreamModes = ['load_balance', 'parallel', 'fastest_addr'];
+const testDomainStorageKey = 'luci.dnsproxy.profileTestDomain';
 
 const callServiceList = rpc.declare({
 	object: 'service',
@@ -130,6 +131,21 @@ function validateTestDomain(value) {
 		return _('Test domain contains an invalid DNS label.');
 
 	return true;
+}
+
+function storedTestDomain() {
+	try {
+		const value = window.localStorage.getItem(testDomainStorageKey);
+		return validateTestDomain(value) === true ? String(value).trim() : 'openwrt.org';
+	} catch (e) {
+		return 'openwrt.org';
+	}
+}
+
+function rememberTestDomain(value) {
+	try {
+		window.localStorage.setItem(testDomainStorageKey, value);
+	} catch (e) { }
 }
 
 function analyzeProfile(data, profiles, sectionName) {
@@ -387,6 +403,53 @@ return view.extend({
 			upstream_mode: upstreamModeOption.getUIElement('global').getValue() || currentUpstreamMode()
 		});
 
+		const modeLabel = (mode) => ({
+			load_balance: _('Load balance'),
+			parallel: _('Parallel'),
+			fastest_addr: _('Fastest address'),
+			'': _('Keep current mode')
+		})[mode || ''] || mode;
+
+		const profileDiff = (before, after) => {
+			const rows = [];
+			const addRow = (setting, oldValues, newValues) => {
+				if (listsEqual(oldValues, newValues))
+					return;
+				const oldSet = new Set(oldValues);
+				const newSet = new Set(newValues);
+				const changes = [
+					...oldValues.filter((value) => !newSet.has(value)).map((value) => '- ' + value),
+					...newValues.filter((value) => !oldSet.has(value)).map((value) => '+ ' + value)
+				];
+				if (!changes.length)
+					changes.push(_('Order changed'));
+				rows.push([setting, changes.join('\n')]);
+			};
+
+			if ((before.upstream_mode || '') !== (after.upstream_mode || ''))
+				rows.push([_('Upstream selection mode'), '%s → %s'.format(modeLabel(before.upstream_mode), modeLabel(after.upstream_mode))]);
+			addRow(_('Bootstrap DNS'), before.bootstrap, after.bootstrap);
+			addRow(_('Upstream DNS'), before.upstream, after.upstream);
+			addRow(_('Fallback DNS'), before.fallback, after.fallback);
+			return rows;
+		};
+
+		const renderProfileDiff = (before, after) => {
+			const rows = profileDiff(before, after);
+			if (!rows.length)
+				return E('p', {}, _('No differences.'));
+			return E('div', { 'class': 'table cbi-section-table' }, [
+				E('div', { 'class': 'tr table-titles' }, [
+					E('div', { 'class': 'th' }, _('Setting')),
+					E('div', { 'class': 'th' }, _('Changes'))
+				]),
+				...rows.map((row) => E('div', { 'class': 'tr' }, [
+					E('div', { 'class': 'td' }, row[0]),
+					E('pre', { 'class': 'td', 'style': 'white-space:pre-wrap;margin:0' }, row[1])
+				]))
+			]);
+		};
+
 		const loadProfileIntoForm = (profile, statusNode) => {
 			if (!profile) {
 				ui.addNotification(null, E('p', {}, _('The selected DNS profile no longer exists. Reload the page and try again.')), 'error');
@@ -396,13 +459,30 @@ return view.extend({
 			const result = analyzeProfile(data, uci.sections(conf, 'profile'), profile['.name']);
 			if (!showProfileProblems(result))
 				return;
+			const current = readFormProfile(_('Current form'));
+			const target = Object.assign({}, data, {
+				upstream_mode: data.upstream_mode || current.upstream_mode
+			});
+			const applyProfile = () => {
+				profileListOptions.forEach((option) => serverOptions[option].getUIElement('servers').setValue(data[option]));
+				if (data.upstream_mode)
+					upstreamModeOption.getUIElement('global').setValue(data.upstream_mode);
+				ui.hideModal();
+				statusNode.textContent = _('Loaded profile “%s”. Review the values, then use Save & Apply.').format(profileTitle(profile));
+				statusNode.style.color = 'var(--primary-color-medium, #37c)';
+			};
 
-			profileListOptions.forEach((option) => serverOptions[option].getUIElement('servers').setValue(data[option]));
-			if (data.upstream_mode)
-				upstreamModeOption.getUIElement('global').setValue(data.upstream_mode);
-
-			statusNode.textContent = _('Loaded profile “%s”. Review the values, then use Save & Apply.').format(profileTitle(profile));
-			statusNode.style.color = 'var(--primary-color-medium, #37c)';
+			ui.showModal(_('Preview profile load'), [
+				E('p', {}, _('The following current form values will be replaced by “%s”.').format(profileTitle(profile))),
+				renderProfileDiff(current, target),
+				E('div', { 'class': 'right' }, [
+					E('button', { 'class': 'btn', 'click': ui.hideModal }, _('Cancel')),
+					E('button', {
+						'class': 'btn cbi-button-positive important',
+						'click': ui.createHandlerFn(this, applyProfile)
+					}, _('Load profile'))
+				])
+			]);
 		};
 
 		const persistProfile = (data, sectionName) => {
@@ -470,7 +550,8 @@ return view.extend({
 			}
 			const data = readFormProfile(profileTitle(profile));
 			ui.showModal(_('Update DNS profile'), [
-				E('p', {}, _('Replace all values stored in “%s” with the current form values?').format(profileTitle(profile))),
+				E('p', {}, _('Review the changes that will be stored in “%s”.').format(profileTitle(profile))),
+				renderProfileDiff(profileData(profile), data),
 				E('div', { 'class': 'right' }, [
 					E('button', { 'class': 'btn', 'click': ui.hideModal }, _('Cancel')),
 					E('button', {
@@ -548,51 +629,123 @@ return view.extend({
 			]);
 		};
 
-		const runProfileTest = (profile, data, domain) => {
-			const args = ['--domain', domain, '--upstream-mode', data.upstream_mode || currentUpstreamMode()];
+		const testKindLabel = (kind) => ({
+			bootstrap: _('Bootstrap'),
+			upstream: _('Upstream'),
+			fallback: _('Fallback'),
+			failover: _('Fallback activation')
+		})[kind] || kind;
+
+		const parseTestOutput = (output) => String(output || '').trim().split('\n').filter(Boolean).map((line) => {
+			const fields = line.split('\t');
+			if (fields.length < 10)
+				throw new Error(_('The DNS profile test returned an unsupported result format.'));
+			const numberOrNull = (value) => /^\d+$/.test(value) ? Number(value) : null;
+			return {
+				kind: fields[0],
+				record: fields[1],
+				status: fields[2],
+				success: Number(fields[3]) || 0,
+				attempts: Number(fields[4]) || 0,
+				min: numberOrNull(fields[5]),
+				avg: numberOrNull(fields[6]),
+				max: numberOrNull(fields[7]),
+				server: fields[8],
+				details: fields.slice(9).join(' ')
+			};
+		});
+
+		const executeProfileTest = (profile, data, settings) => {
+			const args = [
+				'--domain', settings.domain,
+				'--attempts', settings.attempts,
+				'--query-type', settings.queryType,
+				'--upstream-mode', data.upstream_mode || currentUpstreamMode()
+			];
 			profileListOptions.forEach((option) => data[option].forEach((value) => args.push('--' + option, value)));
+			return fs.exec('/usr/libexec/dnsproxy-profile-test', args).then((response) => {
+				const output = String(response.stdout || '').trim();
+				if (response.code !== 0)
+					throw new Error(String(response.stderr || output || _('The DNS query failed.')).trim());
+				const rows = parseTestOutput(output);
+				if (!rows.length)
+					throw new Error(_('The DNS profile test returned no results.'));
+				return { profile, rows };
+			});
+		};
 
-			ui.showModal(_('Testing DNS profile'), [
-				E('p', { 'class': 'spinning' }, _('Resolving %s through “%s”…').format(domain, profileTitle(profile)))
+		const milliseconds = (value) => value == null ? '—' : _('%s ms').format(value);
+
+		const testRowStyle = (row, fastest, slowest) => {
+			if (row.status === 'error')
+				return 'background-color:rgba(220,38,38,.14)';
+			if (row.avg === fastest)
+				return 'background-color:rgba(34,197,94,.16)';
+			if (fastest !== slowest && row.avg === slowest)
+				return 'background-color:rgba(234,179,8,.18)';
+			return '';
+		};
+
+		const renderDetailedTest = (profile, settings, resultRows) => {
+			const rows = resultRows.slice().sort((left, right) => {
+				if (left.avg == null && right.avg == null)
+					return right.success - left.success;
+				if (left.avg == null)
+					return 1;
+				if (right.avg == null)
+					return -1;
+				return left.avg - right.avg;
+			});
+			const latencies = rows.map((row) => row.avg).filter((value) => value != null);
+			const fastest = latencies.length ? Math.min(...latencies) : null;
+			const slowest = latencies.length ? Math.max(...latencies) : null;
+			const statusCell = (row) => {
+				if (row.status === 'ok')
+					return E('span', { 'style': 'color:green;font-weight:bold' }, _('OK'));
+				if (row.status === 'partial')
+					return E('span', { 'style': 'color:#b7791f;font-weight:bold' }, _('Partial'));
+				return E('span', { 'style': 'color:red;font-weight:bold' }, _('Failed'));
+			};
+
+			ui.showModal(_('DNS profile test: %s').format(profileTitle(profile)), [
+				E('p', {}, _('%s queries for each selected record type were sent for %s. Bootstrap, Upstream and Fallback endpoints were tested independently; fallback activation used an unavailable primary resolver.').format(settings.attempts, settings.domain)),
+				E('div', { 'class': 'table cbi-section-table' }, [
+					E('div', { 'class': 'tr table-titles' }, [
+						E('div', { 'class': 'th' }, _('Type')),
+						E('div', { 'class': 'th' }, _('Record')),
+						E('div', { 'class': 'th' }, _('Server')),
+						E('div', { 'class': 'th' }, _('Status')),
+						E('div', { 'class': 'th' }, _('Success')),
+						E('div', { 'class': 'th' }, _('Min')),
+						E('div', { 'class': 'th' }, _('Average')),
+						E('div', { 'class': 'th' }, _('Max')),
+						E('div', { 'class': 'th' }, _('Details'))
+					]),
+					...rows.map((row) => E('div', { 'class': 'tr', 'style': testRowStyle(row, fastest, slowest) }, [
+						E('div', { 'class': 'td' }, testKindLabel(row.kind)),
+						E('div', { 'class': 'td' }, row.record),
+						E('div', { 'class': 'td', 'style': 'overflow-wrap:anywhere' }, row.kind === 'failover' ? _('Configured fallback chain') : row.server),
+						E('div', { 'class': 'td' }, statusCell(row)),
+						E('div', { 'class': 'td' }, '%s/%s'.format(row.success, row.attempts)),
+						E('div', { 'class': 'td' }, milliseconds(row.min)),
+						E('div', { 'class': 'td' }, milliseconds(row.avg)),
+						E('div', { 'class': 'td' }, milliseconds(row.max)),
+						E('div', { 'class': 'td' }, row.details || '')
+					]))
+				]),
+				E('p', {}, _('Green is fastest, yellow is slowest, and red indicates complete failure. Results are sorted by average response time.')),
+				E('div', { 'class': 'right' }, [
+					E('button', { 'class': 'btn cbi-button-positive', 'click': ui.hideModal }, _('Close'))
+				])
 			]);
+		};
 
-			return fs.exec('/usr/libexec/dnsproxy-profile-test', args)
-				.then((response) => {
-					const output = String(response.stdout || '').trim();
-					if (response.code !== 0)
-						throw new Error(String(response.stderr || output || _('The DNS query failed.')).trim());
-
-					const rows = output.split('\n').filter(Boolean).map((line) => {
-						const fields = line.split('\t');
-						return [
-							fields[0] === 'fallback' ? _('Fallback') : _('Upstream'),
-							fields[3] || '',
-							fields[1] === 'ok' ? E('span', { 'style': 'color:green;font-weight:bold' }, _('OK')) : E('span', { 'style': 'color:red;font-weight:bold' }, _('Failed')),
-							fields[1] === 'ok' && fields[2] !== '-' ? _('%s ms').format(fields[2]) : '—',
-							fields.slice(4).join(' ') || ''
-						];
-					});
-
-					if (!rows.length)
-						throw new Error(_('The DNS profile test returned no results.'));
-
-					ui.showModal(_('DNS profile test'), [
-						E('p', {}, _('Each server was tested independently by resolving %s through a temporary local DNS Proxy instance.').format(domain)),
-						E('div', { 'class': 'table cbi-section-table' }, [
-							E('div', { 'class': 'tr table-titles' }, [
-								E('div', { 'class': 'th' }, _('Type')),
-								E('div', { 'class': 'th' }, _('Server')),
-								E('div', { 'class': 'th' }, _('Status')),
-								E('div', { 'class': 'th' }, _('Response time')),
-								E('div', { 'class': 'th' }, _('Details'))
-							]),
-							...rows.map((row) => E('div', { 'class': 'tr' }, row.map((cell) => E('div', { 'class': 'td' }, cell))))
-						]),
-						E('div', { 'class': 'right' }, [
-							E('button', { 'class': 'btn cbi-button-positive', 'click': ui.hideModal }, _('Close'))
-						])
-					]);
-				})
+		const runProfileTest = (profile, data, settings) => {
+			ui.showModal(_('Testing DNS profile'), [
+				E('p', { 'class': 'spinning' }, _('Resolving %s through “%s”…').format(settings.domain, profileTitle(profile)))
+			]);
+			return executeProfileTest(profile, data, settings)
+				.then((result) => renderDetailedTest(profile, settings, result.rows))
 				.catch((err) => {
 					ui.showModal(_('DNS profile test failed'), [
 						E('p', { 'style': 'white-space:pre-wrap' }, err.message || String(err)),
@@ -603,25 +756,108 @@ return view.extend({
 				});
 		};
 
-		const testProfile = (profile) => {
-			if (!profile) {
-				ui.addNotification(null, E('p', {}, _('The selected DNS profile no longer exists. Reload the page and try again.')), 'error');
-				return Promise.resolve();
-			}
-			const data = profileData(profile);
-			const result = analyzeProfile(data, uci.sections(conf, 'profile'), profile['.name']);
-			if (!showProfileProblems(result))
-				return Promise.resolve();
+		const compareProfiles = (profiles, settings) => {
+			const progress = E('p', { 'class': 'spinning' });
+			ui.showModal(_('Comparing DNS profiles'), [progress]);
+			const results = [];
+			let chain = Promise.resolve();
+			profiles.forEach((profile, index) => {
+				chain = chain.then(() => {
+					progress.textContent = _('Testing profile %s of %s: %s').format(index + 1, profiles.length, profileTitle(profile));
+					return executeProfileTest(profile, profileData(profile), settings)
+						.then((result) => results.push(result))
+						.catch((error) => results.push({ profile, error: error.message || String(error), rows: [] }));
+				});
+			});
 
+			return chain.then(() => {
+				const summaries = results.map((result) => {
+					const measured = result.rows.filter((row) => row.kind !== 'failover');
+					const successful = measured.filter((row) => row.avg != null);
+					const success = measured.reduce((sum, row) => sum + row.success, 0);
+					const attemptsTotal = measured.reduce((sum, row) => sum + row.attempts, 0);
+					const successWeight = successful.reduce((sum, row) => sum + row.success, 0);
+					const average = successWeight ? Math.round(successful.reduce((sum, row) => sum + row.avg * row.success, 0) / successWeight) : null;
+					const minimums = successful.map((row) => row.min).filter((value) => value != null);
+					const maximums = successful.map((row) => row.max).filter((value) => value != null);
+					const failover = result.rows.filter((row) => row.kind === 'failover');
+					return {
+						name: profileTitle(result.profile),
+						success,
+						attempts: attemptsTotal,
+						errors: attemptsTotal - success,
+						min: minimums.length ? Math.min(...minimums) : null,
+						avg: average,
+						max: maximums.length ? Math.max(...maximums) : null,
+						failover: failover.length ? (failover.every((row) => row.success > 0) ? _('OK') : _('Failed')) : _('Not configured'),
+						details: result.error || ''
+					};
+				}).sort((left, right) => {
+					if (left.avg == null && right.avg == null)
+						return left.errors - right.errors;
+					if (left.avg == null)
+						return 1;
+					if (right.avg == null)
+						return -1;
+					return left.avg - right.avg;
+				});
+				const averages = summaries.map((summary) => summary.avg).filter((value) => value != null);
+				const fastest = averages.length ? Math.min(...averages) : null;
+				const slowest = averages.length ? Math.max(...averages) : null;
+
+				ui.showModal(_('DNS profile comparison'), [
+					E('p', {}, _('All profiles were tested with the same domain, record type and attempt count. Endpoint averages exclude the fallback-activation check.')),
+					E('div', { 'class': 'table cbi-section-table' }, [
+						E('div', { 'class': 'tr table-titles' }, [
+							E('div', { 'class': 'th' }, _('Profile')),
+							E('div', { 'class': 'th' }, _('Success')),
+							E('div', { 'class': 'th' }, _('Errors')),
+							E('div', { 'class': 'th' }, _('Min')),
+							E('div', { 'class': 'th' }, _('Average')),
+							E('div', { 'class': 'th' }, _('Max')),
+							E('div', { 'class': 'th' }, _('Fallback activation')),
+							E('div', { 'class': 'th' }, _('Details'))
+						]),
+						...summaries.map((summary) => E('div', {
+							'class': 'tr',
+							'style': testRowStyle({ status: summary.avg == null ? 'error' : 'ok', avg: summary.avg }, fastest, slowest)
+						}, [
+							E('div', { 'class': 'td' }, summary.name),
+							E('div', { 'class': 'td' }, '%s/%s'.format(summary.success, summary.attempts)),
+							E('div', { 'class': 'td' }, String(summary.errors)),
+							E('div', { 'class': 'td' }, milliseconds(summary.min)),
+							E('div', { 'class': 'td' }, milliseconds(summary.avg)),
+							E('div', { 'class': 'td' }, milliseconds(summary.max)),
+							E('div', { 'class': 'td' }, summary.failover),
+							E('div', { 'class': 'td' }, summary.details)
+						]))
+					]),
+					E('div', { 'class': 'right' }, [
+						E('button', { 'class': 'btn cbi-button-positive', 'click': ui.hideModal }, _('Close'))
+					])
+				]);
+			});
+		};
+
+		const showTestOptions = (title, description, onRun) => {
 			const domainInput = E('input', {
 				'class': 'cbi-input-text',
 				'type': 'text',
-				'value': 'openwrt.org',
+				'value': storedTestDomain(),
 				'placeholder': 'example.com',
 				'maxlength': '254',
 				'autocomplete': 'off',
 				'spellcheck': 'false'
 			});
+			const attemptsSelect = E('select', { 'class': 'cbi-input-select' }, ['1', '3', '5', '10'].map((value) => E('option', {
+				'value': value,
+				'selected': value === '3' ? 'selected' : null
+			}, value)));
+			const queryTypeSelect = E('select', { 'class': 'cbi-input-select' }, [
+				E('option', { 'value': 'A' }, 'A'),
+				E('option', { 'value': 'AAAA' }, 'AAAA'),
+				E('option', { 'value': 'both' }, 'A + AAAA')
+			]);
 			const validationMessage = E('p', { 'style': 'color:var(--error-color, #c00);white-space:pre-wrap' });
 			const startTest = () => {
 				const domain = String(domainInput.value || '').trim();
@@ -631,7 +867,8 @@ return view.extend({
 					domainInput.focus();
 					return Promise.resolve();
 				}
-				return runProfileTest(profile, data, domain);
+				rememberTestDomain(domain);
+				return onRun({ domain, attempts: attemptsSelect.value, queryType: queryTypeSelect.value });
 			};
 
 			domainInput.addEventListener('keydown', (event) => {
@@ -641,11 +878,19 @@ return view.extend({
 				}
 			});
 
-			ui.showModal(_('Test DNS profile'), [
-				E('p', {}, _('Choose the domain used to measure DNS response time. Each configured server will resolve it independently.')),
+			ui.showModal(title, [
+				E('p', {}, description),
 				E('div', { 'class': 'cbi-value' }, [
 					E('label', { 'class': 'cbi-value-title' }, _('Test domain')),
 					E('div', { 'class': 'cbi-value-field' }, domainInput)
+				]),
+				E('div', { 'class': 'cbi-value' }, [
+					E('label', { 'class': 'cbi-value-title' }, _('Attempts per record type')),
+					E('div', { 'class': 'cbi-value-field' }, attemptsSelect)
+				]),
+				E('div', { 'class': 'cbi-value' }, [
+					E('label', { 'class': 'cbi-value-title' }, _('DNS record type')),
+					E('div', { 'class': 'cbi-value-field' }, queryTypeSelect)
 				]),
 				validationMessage,
 				E('div', { 'class': 'right' }, [
@@ -658,6 +903,20 @@ return view.extend({
 			]);
 			window.setTimeout(() => domainInput.focus(), 0);
 			return Promise.resolve();
+		};
+
+		const testProfile = (profile) => {
+			if (!profile) {
+				ui.addNotification(null, E('p', {}, _('The selected DNS profile no longer exists. Reload the page and try again.')), 'error');
+				return Promise.resolve();
+			}
+			const data = profileData(profile);
+			const result = analyzeProfile(data, uci.sections(conf, 'profile'), profile['.name']);
+			if (!showProfileProblems(result))
+				return Promise.resolve();
+			return showTestOptions(_('Test DNS profile'),
+				_('Choose one domain, the number of measurements and DNS record type. The domain is remembered only in this browser.'),
+				(settings) => runProfileTest(profile, data, settings));
 		};
 
 		s.tab('servers', _('Upstreams'));
@@ -694,6 +953,15 @@ return view.extend({
 						'disabled': profiles.length ? null : '',
 						'click': ui.createHandlerFn(this, () => testProfile(selectedProfile()))
 					}, _('Test profile')),
+					E('button', {
+						'class': 'cbi-button cbi-button-action',
+						'disabled': profiles.length > 1 ? null : '',
+						'click': ui.createHandlerFn(this, () => showTestOptions(
+							_('Compare DNS profiles'),
+							_('Every saved profile will be tested sequentially with identical settings. This can take several minutes.'),
+							(settings) => compareProfiles(uci.sections(conf, 'profile'), settings)
+						))
+					}, _('Compare profiles')),
 					E('button', {
 						'class': 'cbi-button cbi-button-add',
 						'click': ui.createHandlerFn(this, promptNewProfile)
