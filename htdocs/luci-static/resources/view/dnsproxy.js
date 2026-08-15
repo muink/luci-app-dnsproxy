@@ -2,6 +2,7 @@
 'require form';
 'require fs';
 'require uci';
+'require dom';
 'require rpc';
 'require poll';
 'require ui';
@@ -12,6 +13,11 @@
 const conf = 'dnsproxy';
 const instance = 'dnsproxy';
 const profileListOptions = ['bootstrap', 'upstream', 'fallback'];
+const upstream_mode = [
+	['load_balance', _('Load balance'), _('one upstream per request.')],
+	['parallel', _('Parallel'), _('first DNS response wins.')],
+	['fastest_addr', _('Fastest address'), _('tests returned IP addresses.')]
+];
 
 const callServiceList = rpc.declare({
 	object: 'service',
@@ -41,8 +47,8 @@ function profileTitle(profile) {
 	return profile.label || profile['.name'];
 }
 
-function applyProfile(profileName) {
-	const profile = uci.sections(conf, 'profile').find((item) => item['.name'] === profileName);
+function applyProfile(select) {
+	const profile = uci.sections(conf, 'profile').find((item) => item['.name'] === select.value);
 
 	if (!profile)
 		return ui.addNotification(null, E('p', _('The selected DNS profile no longer exists. Reload the page and try again.')), 'error');
@@ -56,21 +62,16 @@ function applyProfile(profileName) {
 		uci.set(conf, 'servers', option, values.length ? values : null);
 	});
 
-	uci.set(conf, 'global', 'upstream_mode', profile.upstream_mode || null);
-
-	ui.showModal(_('Applying DNS profile'), [
-		E('p', { 'class': 'spinning' }, _('Saving “%s” and reloading DNS Proxy…').format(profileTitle(profile)))
-	]);
+	if (profile.upstream_mode)
+		uci.set(conf, 'global', 'upstream_mode', profile.upstream_mode);
 
 	return uci.save()
-		.then(() => uci.apply())
+		.then(L.bind(this.map.load, this.map))
+		.then(L.bind(this.map.reset, this.map))
 		.then(() => {
-			ui.hideModal();
 			ui.addNotification(null, E('p', _('DNS profile “%s” has been applied.').format(profileTitle(profile))), 'info');
-			window.setTimeout(() => window.location.reload(), 800);
 		})
 		.catch((err) => {
-			ui.hideModal();
 			ui.addNotification(null, E('p', _('Failed to apply DNS profile: %s').format(err.message || err)), 'error');
 		});
 }
@@ -210,7 +211,7 @@ return view.extend({
 		o = s.taboption('main', form.Flag, 'insecure', _('Disable secure TLS cert validation'));
 
 		o = s.taboption('main', form.Flag, 'http3', _('Enable HTTP/3 for DoH'));
-		o.description = _('Allows HTTP/3 and uses it when it is faster; HTTPS fallback remains available.');
+		o.description = _('Use HTTP/3 when it is faster. HTTPS fallback remains available.');
 
 		o = s.taboption('main', form.Value, 'timeout', _('Timeout for queries to remote upstream (default: 10s)'));
 		o.datatype = 'string';
@@ -221,27 +222,17 @@ return view.extend({
 		o = s.taboption('main', form.Value, 'udp_buf_size', _('Size of the UDP buffer in bytes. Set 0 use the system default'));
 		o.datatype = 'uinteger';
 
-		o = s.taboption('main', form.ListValue, 'upstream_mode', _('Upstream selection mode'));
-		o.description = _('For the lowest DNS response time choose Parallel. Fastest address performs additional IP reachability tests and is a different, slower operation.');
-		o.value('load_balance', _('Load balance (one upstream per request)'));
-		o.value('parallel', _('Parallel (first DNS response wins)'));
-		o.value('fastest_addr', _('Fastest address (tests returned IP addresses)'));
-		o.default = 'load_balance';
+		o = s.taboption('main', form.RichListValue, 'upstream_mode', _('Upstream selection mode'),
+			_('For the lowest DNS response time choose Parallel.') + '</br>' +
+			_('Fastest address performs additional IP reachability tests and is a different, slower operation.'));
+		upstream_mode.forEach((res) => {
+			o.value.apply(o, res);
+		})
 		o.rmempty = false;
-		o.cfgvalue = function (section_id) {
-			return uci.get(conf, section_id, 'upstream_mode') ||
-				(uci.get(conf, section_id, 'fastest_addr') === '1' ? 'fastest_addr' : null) ||
-				(uci.get(conf, section_id, 'all_servers') === '1' ? 'parallel' : 'load_balance');
-		};
-		o.write = function (section_id, value) {
-			uci.set(conf, section_id, 'upstream_mode', value);
-			uci.unset(conf, section_id, 'all_servers');
-			uci.unset(conf, section_id, 'fastest_addr');
-		};
 
 		s.tab('cache', _('Cache'));
 
-		o = s.taboption('cache', form.SectionValue, '_cache', form.NamedSection, 'cache', 'homeproxy');
+		o = s.taboption('cache', form.SectionValue, '_cache', form.NamedSection, 'cache', 'dnsproxy');
 		ss = o.subsection;
 
 		so = ss.option(form.Flag, 'enabled', _('Enable Cache'));
@@ -268,7 +259,7 @@ return view.extend({
 
 		s.tab('dns64', _('DNS64'));
 
-		o = s.taboption('dns64', form.SectionValue, '_dns64', form.NamedSection, 'dns64', 'homeproxy');
+		o = s.taboption('dns64', form.SectionValue, '_dns64', form.NamedSection, 'dns64', 'dnsproxy');
 		ss = o.subsection;
 
 		so = ss.option(form.Flag, 'enabled', _('Enable DNS64'));
@@ -281,7 +272,7 @@ return view.extend({
 
 		s.tab('edns', _('EDNS'));
 
-		o = s.taboption('edns', form.SectionValue, '_edns', form.NamedSection, 'edns', 'homeproxy');
+		o = s.taboption('edns', form.SectionValue, '_edns', form.NamedSection, 'edns', 'dnsproxy');
 		ss = o.subsection;
 
 		so = ss.option(form.Flag, 'enabled', _('Enable EDNS'));
@@ -293,7 +284,7 @@ return view.extend({
 
 		s.tab('bogus_nxdomain', _('Bogus-NXDOMAIN'));
 
-		o = s.taboption('bogus_nxdomain', form.SectionValue, '_bogus_nxdomain', form.NamedSection, 'bogus_nxdomain', 'homeproxy');
+		o = s.taboption('bogus_nxdomain', form.SectionValue, '_bogus_nxdomain', form.NamedSection, 'bogus_nxdomain', 'dnsproxy');
 		ss = o.subsection;
 
 		so = ss.option(form.DynamicList, 'ip_addr', _('Convert matching single IP responses to NXDOMAIN'));
@@ -302,7 +293,7 @@ return view.extend({
 		s.tab('servers', _('Upstreams'));
 
 		o = s.taboption('servers', form.DummyValue, '_profile_switcher', _('DNS profiles'),
-			_('A profile replaces Bootstrap, Upstream and Fallback lists together, then immediately reloads DNS Proxy. Unsaved changes elsewhere on this page are not included.'));
+			_('A profile replaces Bootstrap, Upstream and Fallback lists together. Unsaved changes elsewhere on this page are not included.'));
 		o.renderWidget = function () {
 			const profiles = uci.sections(conf, 'profile');
 			const select = E('select', {
@@ -319,40 +310,76 @@ return view.extend({
 					E('button', {
 						'class': 'cbi-button cbi-button-positive important',
 						'disabled': profiles.length ? null : '',
-						'click': ui.createHandlerFn(this, () => applyProfile(select.value))
-					}, _('Apply selected profile'))
+						'click': ui.createHandlerFn(this, applyProfile, select)
+					}, _('Use selected profile'))
 				]),
 				profiles.length ? '' : E('p', {}, _('Create and save a profile in the “DNS profile templates” section below first.'))
 			]);
 		};
 
-		o = s.taboption('servers', form.SectionValue, '_servers', form.NamedSection, 'servers', 'homeproxy');
+		o = s.taboption('servers', form.SectionValue, '_servers', form.NamedSection, 'servers', 'dnsproxy');
 		ss = o.subsection;
 
 		so = ss.option(form.DynamicList, 'bootstrap', _('Bootstrap DNS Server'));
+		so.readonly = true
 
 		so = ss.option(form.DynamicList, 'upstream', _('Upstream DNS Server'));
+		so.readonly = true
 		so.rmempty = false;
 
 		so = ss.option(form.DynamicList, 'fallback', _('Fallback DNS Server'));
+		so.readonly = true
 
 		o = s.taboption('servers', form.SectionValue, '_profiles', form.GridSection, 'profile', _('DNS profile templates'),
 			_('Create reusable templates here. Applying a template does not modify the template itself.'));
 		ss = o.subsection;
 		ss.anonymous = true;
 		ss.addremove = true;
+		ss.rowcolors = true;
+		ss.sortable = true;
 		ss.nodescriptions = true;
 		ss.addbtntitle = _('Add DNS profile');
+		ss.renderRowActions = function(section_id, more_label, trEl) {
+			trEl = form.GridSection.prototype.renderRowActions.apply(this, arguments);
+			const preset_ids = [
+				'default'
+			];
+
+			if (preset_ids.includes(section_id))
+				trEl?.lastChild.querySelector('.cbi-button-remove')?.remove();
+
+			return trEl;
+		}
 
 		so = ss.option(form.Value, 'label', _('Profile name'));
 		so.rmempty = false;
 		so.validate = validateUniqueValue;
 
-		so = ss.option(form.ListValue, 'upstream_mode', _('Upstream selection mode'));
-		so.value('', _('Keep current mode'));
-		so.value('load_balance', _('Load balance (one upstream per request)'));
-		so.value('parallel', _('Parallel (first DNS response wins)'));
-		so.value('fastest_addr', _('Fastest address (tests returned IP addresses)'));
+		so = ss.option(form.RichListValue, 'upstream_mode', _('Upstream selection mode'));
+		so.value(' ', _('Keep current mode'));
+		upstream_mode.forEach((res) => {
+			so.value.apply(so, res);
+		})
+		so.load = function(section_id) {
+			let value = this.super('load', section_id);
+			if (!value)
+				return ' ';
+
+			return value;
+		}
+		so.write = function(section_id, value) {
+			if (!value.trim())
+				return this.super('remove', section_id);
+
+			return form.RichListValue.prototype.write.call(this, section_id, value);
+		}
+		so.textvalue = function(section_id) {
+			let cval = this.cfgvalue(section_id);
+			let i = this.keylist.indexOf(cval);
+			let val = this.vallist[i];
+
+			return dom.elem(val) ? val.firstChild.textContent : val ?? cval;
+		}
 
 		so = ss.option(form.DynamicList, 'bootstrap', _('Bootstrap DNS'));
 		so.validate = validateServerValue;
